@@ -164,6 +164,19 @@ jobs:
             Artifacts/CExifToolBridge.xcframework.zip \
             Artifacts/ExifToolSPM-local-package.tar.gz
 
+      - name: Publish prebuilt branch
+        if: steps.release-metadata.outputs.should_publish == 'true'
+        env:
+          CEXIFTOOLBRIDGE_URL: https://github.com/${{ github.repository }}/releases/download/${{ steps.release-metadata.outputs.release_tag }}/CExifToolBridge.xcframework.zip
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          PREBUILT_BRANCH: prebuilt
+          RELEASE_TAG: ${{ steps.release-metadata.outputs.release_tag }}
+          SOURCE_REF: ${{ github.sha }}
+        run: |
+          checksum="$(swift package compute-checksum Artifacts/CExifToolBridge.xcframework.zip)"
+          CEXIFTOOLBRIDGE_CHECKSUM="${checksum}" bash scripts/publish-prebuilt-branch.sh
+
       - name: Report skipped release check
         if: steps.release-metadata.outputs.should_publish != 'true'
         run: echo "${{ steps.release-metadata.outputs.skip_reason }}"

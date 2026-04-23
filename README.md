@@ -30,3 +30,15 @@ Outputs:
 - `Artifacts/ExifToolSPM-local-package.tar.gz`
 
 The local package bundle contains the Swift package manifest, Swift sources, Perl resources, and the built XCFramework. Unpack it anywhere and add it to Xcode as a local package.
+
+## Prebuilt branch
+
+Successful `release` runs also update the `prebuilt` branch.
+That branch points `Package.swift` at the latest published XCFramework on GitHub Releases, so iOS clients can consume the package without building the bridge locally.
+
+```swift
+.package(
+    url: "https://github.com/lbr77/exiftool-spm",
+    branch: "prebuilt"
+)
+```
