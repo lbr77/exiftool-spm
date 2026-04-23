@@ -11,9 +11,16 @@ on:
         description: Perl release version
         default: "5.40.3"
         required: true
+      release-tag:
+        description: Optional Git tag to publish as a GitHub Release
+        default: ""
+        required: false
   push:
     tags:
       - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   build-ios-package:
@@ -22,10 +29,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve release metadata
+        id: release-metadata
+        env:
+          INPUT_EXIFTOOL_VERSION: ${{ github.event.inputs['exiftool-version'] || '' }}
+          INPUT_PERL_VERSION: ${{ github.event.inputs['perl-version'] || '' }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs['release-tag'] || '' }}
+        run: |
+          exiftool_version="${INPUT_EXIFTOOL_VERSION:-13.57}"
+          perl_version="${INPUT_PERL_VERSION:-5.40.3}"
+          release_tag="${INPUT_RELEASE_TAG}"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            release_tag="${GITHUB_REF_NAME}"
+
+            if [[ "${release_tag}" =~ ^v([0-9][0-9.]*)-perl-([0-9][0-9.]*)$ ]]; then
+              exiftool_version="${BASH_REMATCH[1]}"
+              perl_version="${BASH_REMATCH[2]}"
+            elif [[ "${release_tag}" =~ ^v([0-9][0-9.]*)$ ]]; then
+              exiftool_version="${BASH_REMATCH[1]}"
+            fi
+          elif [[ -z "${release_tag}" ]]; then
+            release_tag="v${exiftool_version}-perl-${perl_version}"
+          fi
+
+          {
+            echo "exiftool_version=${exiftool_version}"
+            echo "perl_version=${perl_version}"
+            echo "release_tag=${release_tag}"
+            echo "release_name=ExifTool ${exiftool_version} / Perl ${perl_version}"
+          } >> "${GITHUB_OUTPUT}"
+
       - name: Build iOS XCFramework and local package bundle
         env:
-          EXIFTOOL_VERSION: ${{ inputs.exiftool-version || '13.57' }}
-          PERL_VERSION: ${{ inputs.perl-version || '5.40.3' }}
+          EXIFTOOL_VERSION: ${{ steps.release-metadata.outputs.exiftool_version }}
+          PERL_VERSION: ${{ steps.release-metadata.outputs.perl_version }}
         run: bash scripts/build-ios-xcframework.sh
 
       - name: Upload XCFramework zip
@@ -39,3 +77,38 @@ jobs:
         with:
           name: ExifToolSPM-local-package
           path: Artifacts/ExifToolSPM-local-package.tar.gz
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release-metadata.outputs.release_tag }}
+          RELEASE_NAME: ${{ steps.release-metadata.outputs.release_name }}
+          EXIFTOOL_VERSION: ${{ steps.release-metadata.outputs.exiftool_version }}
+          PERL_VERSION: ${{ steps.release-metadata.outputs.perl_version }}
+        run: |
+          notes_file="$(mktemp)"
+          cat > "${notes_file}" <<EOF
+          ExifTool version: ${EXIFTOOL_VERSION}
+          Perl version: ${PERL_VERSION}
+          Commit: ${GITHUB_SHA}
+          Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+
+          if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release edit "${RELEASE_TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "${RELEASE_NAME}" \
+              --notes-file "${notes_file}"
+          else
+            gh release create "${RELEASE_TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --target "${GITHUB_SHA}" \
+              --title "${RELEASE_NAME}" \
+              --notes-file "${notes_file}"
+          fi
+
+          gh release upload "${RELEASE_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --clobber \
+            Artifacts/CExifToolBridge.xcframework.zip \
+            Artifacts/ExifToolSPM-local-package.tar.gz
