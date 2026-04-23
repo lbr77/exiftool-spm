@@ -1,0 +1,17 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  host-test:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify embedded bridge on host macOS
+        run: bash scripts/test-local.sh

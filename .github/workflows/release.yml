@@ -1,0 +1,41 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      exiftool-version:
+        description: ExifTool release version
+        default: "13.57"
+        required: true
+      perl-version:
+        description: Perl release version
+        default: "5.40.3"
+        required: true
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-ios-package:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build iOS XCFramework and local package bundle
+        env:
+          EXIFTOOL_VERSION: ${{ inputs.exiftool-version || '13.57' }}
+          PERL_VERSION: ${{ inputs.perl-version || '5.40.3' }}
+        run: bash scripts/build-ios-xcframework.sh
+
+      - name: Upload XCFramework zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: CExifToolBridge-xcframework
+          path: Artifacts/CExifToolBridge.xcframework.zip
+
+      - name: Upload local Swift package bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExifToolSPM-local-package
+          path: Artifacts/ExifToolSPM-local-package.tar.gz

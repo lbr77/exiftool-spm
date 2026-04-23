@@ -1,0 +1,7 @@
+.build/
+BuildSupport/perl-embed-flags.json
+Artifacts/CExifToolBridge.xcframework
+Artifacts/CExifToolBridge.xcframework.zip
+Artifacts/ExifToolSPM-local-package.tar.gz
+Sources/ExifTool/Resources/Perl/lib/
+.DS_Store
