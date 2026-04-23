@@ -14,6 +14,7 @@ ARTIFACTS_DIR="${ROOT_DIR}/Artifacts"
 HEADERS_DIR="${BUILD_DIR}/xcframework-headers"
 READELF_COMPAT="${ROOT_DIR}/scripts/readelf-compat.sh"
 LLVM_OBJDUMP="$(xcrun -f llvm-objdump)"
+LIPO_TOOL="$(xcrun -f lipo)"
 JOBS="$(host_jobs)"
 
 download_if_missing \
@@ -124,13 +125,19 @@ build_slice "iphoneos" "arm64" "arm64-apple-ios" "-miphoneos-version-min=" "ios-
 build_slice "iphonesimulator" "arm64" "arm64-apple-iossimulator" "-mios-simulator-version-min=" "ios-sim-arm64"
 build_slice "iphonesimulator" "x86_64" "x86_64-apple-iossimulator" "-mios-simulator-version-min=" "ios-sim-x86_64"
 
+rm -rf "${IOS_BUILD_ROOT}/ios-simulator-universal"
+mkdir -p "${IOS_BUILD_ROOT}/ios-simulator-universal"
+"${LIPO_TOOL}" -create \
+  "${IOS_BUILD_ROOT}/ios-sim-arm64/libCExifToolBridge.a" \
+  "${IOS_BUILD_ROOT}/ios-sim-x86_64/libCExifToolBridge.a" \
+  -output "${IOS_BUILD_ROOT}/ios-simulator-universal/libCExifToolBridge.a"
+
 rm -rf "${ARTIFACTS_DIR}/CExifToolBridge.xcframework"
 mkdir -p "${ARTIFACTS_DIR}"
 
 xcodebuild -create-xcframework \
   -library "${IOS_BUILD_ROOT}/ios-arm64/libCExifToolBridge.a" -headers "${HEADERS_DIR}" \
-  -library "${IOS_BUILD_ROOT}/ios-sim-arm64/libCExifToolBridge.a" -headers "${HEADERS_DIR}" \
-  -library "${IOS_BUILD_ROOT}/ios-sim-x86_64/libCExifToolBridge.a" -headers "${HEADERS_DIR}" \
+  -library "${IOS_BUILD_ROOT}/ios-simulator-universal/libCExifToolBridge.a" -headers "${HEADERS_DIR}" \
   -output "${ARTIFACTS_DIR}/CExifToolBridge.xcframework"
 
 pushd "${ARTIFACTS_DIR}" >/dev/null
