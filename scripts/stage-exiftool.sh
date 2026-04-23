@@ -30,7 +30,7 @@ fi
 rm -rf "${RESOURCE_DIR}/lib"
 mkdir -p "${RESOURCE_DIR}/lib/perl5/${PERL_VERSION}"
 
-PERL_CONFIG_PM="$(fd '^Config\.pm$' "${PERL_VERSION_LIB}" -tf | head -n 1)"
+PERL_CONFIG_PM="$(find_first_file_named "${PERL_VERSION_LIB}" "Config.pm")"
 PERL_ARCH_LIB_DIR=""
 
 if [[ -n "${PERL_CONFIG_PM}" ]]; then

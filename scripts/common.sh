@@ -37,6 +37,18 @@ host_jobs() {
   getconf _NPROCESSORS_ONLN
 }
 
+find_first_file_named() {
+  local search_root="$1"
+  local file_name="$2"
+
+  if command -v fd >/dev/null 2>&1; then
+    fd "^${file_name//./\\.}$" "${search_root}" -tf | head -n 1
+    return 0
+  fi
+
+  find "${search_root}" -type f -name "${file_name}" | sort | head -n 1
+}
+
 patch_perl_cross_for_darwin() {
   local source_root="$1"
   local file
