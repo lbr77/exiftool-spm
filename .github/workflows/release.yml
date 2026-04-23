@@ -1,6 +1,8 @@
 name: release
 
 on:
+  schedule:
+    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       exiftool-version:
@@ -32,6 +34,7 @@ jobs:
       - name: Resolve release metadata
         id: release-metadata
         env:
+          GH_TOKEN: ${{ github.token }}
           INPUT_EXIFTOOL_VERSION: ${{ github.event.inputs['exiftool-version'] || '' }}
           INPUT_PERL_VERSION: ${{ github.event.inputs['perl-version'] || '' }}
           INPUT_RELEASE_TAG: ${{ github.event.inputs['release-tag'] || '' }}
@@ -39,8 +42,34 @@ jobs:
           exiftool_version="${INPUT_EXIFTOOL_VERSION:-13.57}"
           perl_version="${INPUT_PERL_VERSION:-5.40.3}"
           release_tag="${INPUT_RELEASE_TAG}"
+          should_publish="true"
+          latest_exiftool_version=""
+          current_release_tag=""
+          current_exiftool_version=""
+          skip_reason=""
 
-          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
+            latest_exiftool_version="$(curl --fail --location --silent --show-error https://exiftool.org/ver.txt | tr -d '[:space:]')"
+            exiftool_version="${latest_exiftool_version}"
+            release_tag="v${exiftool_version}-perl-${perl_version}"
+
+            if current_release_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name 2>/dev/null)"; then
+              if [[ "${current_release_tag}" =~ ^v([0-9][0-9.]*)-perl-([0-9][0-9.]*)$ ]]; then
+                current_exiftool_version="${BASH_REMATCH[1]}"
+              elif [[ "${current_release_tag}" =~ ^v([0-9][0-9.]*)$ ]]; then
+                current_exiftool_version="${BASH_REMATCH[1]}"
+              fi
+            fi
+
+            if [[ -n "${current_exiftool_version}" ]]; then
+              if perl -Mversion -e 'exit(version->parse($ARGV[0]) > version->parse($ARGV[1]) ? 0 : 1)' "${latest_exiftool_version}" "${current_exiftool_version}"; then
+                should_publish="true"
+              else
+                should_publish="false"
+                skip_reason="Latest ExifTool version ${latest_exiftool_version} is already published by ${current_release_tag}"
+              fi
+            fi
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
             release_tag="${GITHUB_REF_NAME}"
 
             if [[ "${release_tag}" =~ ^v([0-9][0-9.]*)-perl-([0-9][0-9.]*)$ ]]; then
@@ -58,27 +87,49 @@ jobs:
             echo "perl_version=${perl_version}"
             echo "release_tag=${release_tag}"
             echo "release_name=ExifTool ${exiftool_version} / Perl ${perl_version}"
+            echo "should_publish=${should_publish}"
+            echo "latest_exiftool_version=${latest_exiftool_version}"
+            echo "current_release_tag=${current_release_tag}"
+            echo "current_exiftool_version=${current_exiftool_version}"
+            echo "skip_reason=${skip_reason}"
           } >> "${GITHUB_OUTPUT}"
 
+          if [[ "${should_publish}" == "true" ]]; then
+            {
+              echo "Release target: ${release_tag}"
+              echo "ExifTool version: ${exiftool_version}"
+              echo "Perl version: ${perl_version}"
+            } >> "${GITHUB_STEP_SUMMARY}"
+          else
+            {
+              echo "Scheduled release check skipped."
+              echo "${skip_reason}"
+            } >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
       - name: Build iOS XCFramework and local package bundle
+        if: steps.release-metadata.outputs.should_publish == 'true'
         env:
           EXIFTOOL_VERSION: ${{ steps.release-metadata.outputs.exiftool_version }}
           PERL_VERSION: ${{ steps.release-metadata.outputs.perl_version }}
         run: bash scripts/build-ios-xcframework.sh
 
       - name: Upload XCFramework zip
+        if: steps.release-metadata.outputs.should_publish == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: CExifToolBridge-xcframework
           path: Artifacts/CExifToolBridge.xcframework.zip
 
       - name: Upload local Swift package bundle
+        if: steps.release-metadata.outputs.should_publish == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ExifToolSPM-local-package
           path: Artifacts/ExifToolSPM-local-package.tar.gz
 
       - name: Publish GitHub Release
+        if: steps.release-metadata.outputs.should_publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release-metadata.outputs.release_tag }}
@@ -112,3 +163,7 @@ jobs:
             --clobber \
             Artifacts/CExifToolBridge.xcframework.zip \
             Artifacts/ExifToolSPM-local-package.tar.gz
+
+      - name: Report skipped release check
+        if: steps.release-metadata.outputs.should_publish != 'true'
+        run: echo "${{ steps.release-metadata.outputs.skip_reason }}"
