@@ -22,7 +22,7 @@ extract_tarball "${PERL_ARCHIVE}" "${PERL_SOURCE_DIR}"
 pushd "${PERL_SOURCE_DIR}" >/dev/null
 
 if [[ ! -x "${PERL_PREFIX}/bin/perl" ]]; then
-  yes '' | sh Configure \
+  sh Configure \
     -des \
     -Dprefix="${PERL_PREFIX}" \
     -Dman1dir=none \
