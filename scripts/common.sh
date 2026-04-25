@@ -71,6 +71,13 @@ patch_perl_cross_for_darwin() {
   perl -0pi -e "s/tryhints 'hint' \"\\\$h\"/tryhints \"\\\$h\"/g" \
     "${source_root}/cnf/configure_hint.sh"
 
+  # perl-cross 1.6.4 does not classify Apple triples, leaving osname empty and
+  # producing broken archnames like "aarch64-". That cascades into invalid
+  # @INC paths during later install/module phases.
+  perl -0pi -e '
+    s@\n\t\t\*-mingw32\)@\n\t\t*-darwin*|*-ios*|*-watchos*|*-tvos*|*-visionos*|*-macabi)\n\t\t\tdefine osname "darwin"\n\t\t\tresult "Darwin"\n\t\t\t;;\n\t\t*-mingw32)@;
+  ' "${source_root}/cnf/configure_tool.sh"
+
   perl -0pi -e '
     s@mstart "Guessing byte order"\nif not hinted '\''byteorder'\''; then\n.*?\nfi\n\n# Mantissa bits,@mstart "Guessing byte order"\nif not hinted '\''byteorder'\''; then\n\tdefine byteorder '\''12345678'\''\n\tresult '\''12345678'\''\nfi\n\n# Mantissa bits,@s;
   ' "${source_root}/cnf/configure_type_sel.sh"
