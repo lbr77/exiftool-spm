@@ -18,8 +18,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "CExifToolBridge",
-            url: "https://github.com/lbr77/exiftool-spm/releases/download/v13.57-perl-5.40.3/CExifToolBridge.xcframework.zip",
-            checksum: "7994a7d1f8631e663166701ee4a18fd4ac9eec87410b316fa524721f32707c3a"
+            url: "https://github.com/lbr77/exiftool-spm/releases/download/v13.58-perl-5.40.3/CExifToolBridge.xcframework.zip",
+            checksum: "1b3dd886607a5dfbfccc69f816a41fcbf69e6edb0ef1b8b47d82ac83b84510b9"
         ),
         .target(
             name: "ExifTool",

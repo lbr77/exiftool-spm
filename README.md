@@ -16,8 +16,8 @@ Then depend on `ExifTool` from your target.
 
 ## Current binary
 
-- Release tag: `v13.57-perl-5.40.3`
-- XCFramework: `https://github.com/lbr77/exiftool-spm/releases/download/v13.57-perl-5.40.3/CExifToolBridge.xcframework.zip`
+- Release tag: `v13.58-perl-5.40.3`
+- XCFramework: `https://github.com/lbr77/exiftool-spm/releases/download/v13.58-perl-5.40.3/CExifToolBridge.xcframework.zip`
 - Source commit: `b42bd602db7535b0a42c56e531a84b8221492071`
 
 ## Platform support
